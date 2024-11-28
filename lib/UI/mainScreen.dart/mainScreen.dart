@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:open_meteo_weather_api/Model/WeatherModel.dart';
+import 'package:open_meteo_weather_api/Services/dateformat.dart';
 import 'package:open_meteo_weather_api/UI/mainScreen.dart/mainScreenProvider.dart';
 import 'package:provider/provider.dart';
 
@@ -11,75 +11,71 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late Future<void> _weatherDataFuture;
-
   @override
   void initState() {
     super.initState();
-    // Initialize data fetch
-    _weatherDataFuture = _initializeWeatherData();
+    _initializeWeatherData();
   }
 
   Future<void> _initializeWeatherData() async {
-    // Fetch location and weather data using the provider
     final provider = context.read<MainScreenProvider>();
-    await provider.fetchLocation();
     await provider.fetchWeatherData();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MainScreenProvider(),
-      child: Consumer<MainScreenProvider>(
-        builder: (context, provider, child) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Weather Updates'),
-            centerTitle: true,
+    final provider = context.watch<MainScreenProvider>();
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.cyan[200],
+        title: const Text(
+          'Weather Updates',
+          style: TextStyle(color: Colors.purple),
+        ),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              provider.cityName,
+              style: const TextStyle(color: Colors.pink, fontSize: 16),
+            ),
           ),
-          body: FutureBuilder<void>(
-            future: _weatherDataFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Error: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                );
-              } else if (provider.weatherModel?.hourlyUnits == null) {
-                print('weather temperature ');
-                return Center(
+        ],
+      ),
+      body: provider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : provider.weatherModel == null
+              ? Center(
                   child: ElevatedButton(
                     onPressed: () {
-                      setState(() {
-                        _weatherDataFuture = _initializeWeatherData();
-                      });
+                      provider.fetchWeatherData();
                     },
                     child: const Text('Retry'),
                   ),
-                );
-              } else {
-                return ListView.builder(
-                  itemCount: provider.weatherModel!.hourlyUnits!.time!.length,
+                )
+              : ListView.builder(
+                  itemCount: provider.weatherModel!.time!.length,
                   itemBuilder: (context, index) {
-                    final time =
-                        provider.weatherModel!.hourlyUnits!.time![index];
-                    final temperature = provider
-                        .weatherModel!.hourlyUnits!.temperature2m![index];
+                    final time = provider.weatherModel!.time![index];
+                    final temperature =
+                        provider.weatherModel!.temperature2m![index];
+                    final formattedTime = getFormattedDate(time);
+
                     return ListTile(
-                      title: Text('Time: $time'),
-                      trailing: Text('Temperature: $temperature°C'),
+                      tileColor: (index % 2) == 0
+                          ? const Color.fromARGB(255, 192, 255, 194)
+                          : const Color.fromARGB(255, 255, 212, 209),
+                      title: Text(formattedTime),
+                      trailing: Text(
+                        'Temp: $temperature°C',
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.black),
+                      ),
                     );
                   },
-                );
-              }
-            },
-          ),
-        ),
-      ),
+                ),
     );
   }
 }
